@@ -16,6 +16,8 @@ const policyHtml = html
 
 mkdirSync(join(dist, 'privacy-policy'), { recursive: true });
 writeFileSync(join(dist, 'privacy-policy', 'index.html'), policyHtml);
+mkdirSync(join(dist, 'home'), { recursive: true });
+writeFileSync(join(dist, 'home', 'index.html'), html);
 writeFileSync(join(dist, '404.html'), html);
 writeFileSync(join(dist, '.nojekyll'), '');
-console.log('postbuild: wrote privacy-policy/index.html, 404.html, .nojekyll');
+console.log('postbuild: wrote privacy-policy/index.html, home/index.html, 404.html, .nojekyll');
