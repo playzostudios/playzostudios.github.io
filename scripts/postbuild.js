@@ -1,23 +1,31 @@
-// GitHub Pages serves static files only. Copy the SPA entry so that
-// /privacy-policy/ is a real page (HTTP 200, no redirect) as Meta's VRC
-// requires, and add a 404.html fallback for any other client-side route.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+// GitHub Pages serves static files only. Pre-render each route to real HTML
+// (so the content is readable without JavaScript, as Poki and Meta require)
+// and write it to <route>/index.html so every URL returns HTTP 200 directly.
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const dist = 'dist';
-const html = readFileSync(join(dist, 'index.html'), 'utf8');
+const ssrDir = 'dist-ssr';
+const template = readFileSync(join(dist, 'index.html'), 'utf8');
+const { render } = await import(pathToFileURL(resolve(ssrDir, 'entry-server.js')).href);
 
-const policyHtml = html
-  .replace(/<title>.*?<\/title>/, '<title>Privacy Policy | Playzo Games Studio</title>')
-  .replace(
-    '<div id="root"></div>',
-    '<div id="root"><noscript><h1>Privacy Policy</h1><p>Playzo Games Studio Privacy Policy. Please enable JavaScript to view the full policy.</p></noscript></div>'
-  );
+const pages = [
+  { url: '/', out: 'index.html', title: 'Playzo Games Studio' },
+  { url: '/home', out: 'home/index.html', title: 'Playzo Games Studio' },
+  { url: '/privacy-policy', out: 'privacy-policy/index.html', title: 'Privacy Policy | Playzo Games Studio' },
+  { url: '/', out: '404.html', title: 'Playzo Games Studio' },
+];
 
-mkdirSync(join(dist, 'privacy-policy'), { recursive: true });
-writeFileSync(join(dist, 'privacy-policy', 'index.html'), policyHtml);
-mkdirSync(join(dist, 'home'), { recursive: true });
-writeFileSync(join(dist, 'home', 'index.html'), html);
-writeFileSync(join(dist, '404.html'), html);
+for (const { url, out, title } of pages) {
+  const html = template
+    .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
+    .replace('<div id="root"></div>', `<div id="root">${render(url)}</div>`);
+  const file = join(dist, out);
+  mkdirSync(join(file, '..'), { recursive: true });
+  writeFileSync(file, html);
+}
+
 writeFileSync(join(dist, '.nojekyll'), '');
-console.log('postbuild: wrote privacy-policy/index.html, home/index.html, 404.html, .nojekyll');
+rmSync(ssrDir, { recursive: true, force: true });
+console.log(`postbuild: pre-rendered ${pages.map((p) => p.out).join(', ')}`);
